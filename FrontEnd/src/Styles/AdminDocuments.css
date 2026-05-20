@@ -1,0 +1,90 @@
+/* Admin Panel Styles */
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0;
+}
+
+.admin-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-family: inherit;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.admin-tab:hover { color: var(--primary); }
+.admin-tab.active { color: var(--secondary); border-bottom-color: var(--secondary); }
+.admin-tab .material-symbols-outlined { font-size: 18px; }
+
+.admin-card {
+  background-color: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.admin-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 20px;
+}
+.admin-card-title .material-symbols-outlined { color: var(--secondary); font-size: 20px; }
+
+/* Document List */
+.doc-list { display: flex; flex-direction: column; gap: 12px; }
+.doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 18px;
+  gap: 12px;
+}
+.doc-info { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.doc-icon { color: #EF4444; font-size: 28px; flex-shrink: 0; }
+.doc-name { font-size: 15px; font-weight: 600; color: var(--primary); margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-meta { font-size: 12px; color: var(--text-muted); margin: 0; }
+.doc-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.doc-status {
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+}
+.doc-status.active   { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+.doc-status.inactive { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+
+.doc-btn { background: none; border: none; cursor: pointer; border-radius: 6px; padding: 4px; transition: background 0.2s; display: flex; align-items: center; }
+.toggle-btn { color: var(--secondary); }
+.toggle-btn:hover { background: rgba(59, 130, 246, 0.1); }
+.delete-btn { color: #EF4444; }
+.delete-btn:hover { background: rgba(239, 68, 68, 0.1); }
+.doc-btn .material-symbols-outlined { font-size: 22px; }
+
+/* FAQ List */
+.faq-list { display: flex; flex-direction: column; gap: 8px; }
+.faq-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  border-radius: 8px; padding: 12px 16px;
+}
+.faq-rank { font-weight: 700; color: var(--secondary); font-size: 14px; width: 28px; flex-shrink: 0; }
+.faq-question { flex: 1; font-size: 14px; color: var(--text-main); margin: 0; }
+.faq-count { font-weight: 700; color: var(--text-muted); font-size: 13px; flex-shrink: 0; }

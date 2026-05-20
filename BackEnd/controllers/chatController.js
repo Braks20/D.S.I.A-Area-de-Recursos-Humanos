@@ -1,130 +1,165 @@
-// Chatbot Controller - Powered by Groq (llama-3.3-70b)
-// Falls back to keyword rules if Groq is unavailable
+const KnowledgeDocument = require('../models/KnowledgeDocument');
+const ChatHistory = require('../models/ChatHistory');
 
-const SYSTEM_PROMPT = `Eres un asistente virtual exclusivo del sitio web de "Talento & Estrategia", 
-una firma de consultoría de Recursos Humanos con sede en la Ciudad de México.
+// RAG: find the most relevant document chunk for the question
+function searchDocuments(docs, question) {
+  const stopWords = new Set(['que', 'como', 'cual', 'qué', 'cómo', 'cuál', 'para', 'con', 'una', 'uno', 'los', 'las', 'del', 'por', 'son', 'hay', 'esta', 'este', 'esta', 'ser', 'sus', 'más']);
+  const keywords = question.toLowerCase()
+    .replace(/[¿?¡!.,;:]/g, '')
+    .split(' ')
+    .filter(w => w.length > 3 && !stopWords.has(w));
 
-TU ÚNICA FUNCIÓN es responder preguntas sobre esta empresa y este sitio web.
-Si el usuario pregunta algo que NO esté relacionado con Talento & Estrategia, responde amablemente 
-que solo puedes ayudar con información de la empresa.
+  if (keywords.length === 0) return null;
 
-INFORMACIÓN COMPLETA DE LA EMPRESA:
+  let best = null;
+  let bestScore = 0;
 
-SERVICIOS OFRECIDOS:
-- Reclutamiento y Selección (Headhunting): búsqueda de talento ejecutivo y especializado.
-- Administración de Personal y Nómina (Outsourcing): gestión integral del ciclo laboral.
-- Consultoría y Clima Organizacional: diagnóstico y estrategias para mejorar cultura corporativa.
-- Capacitación y Desarrollo: programas a medida para habilidades blandas y técnicas.
-- Evaluaciones Psicométricas: pruebas de personalidad, inteligencia e integridad.
-- Asesoría Legal Laboral: cumplimiento normativo, auditorías y redacción de contratos.
+  for (const doc of docs) {
+    const text = doc.textContent.toLowerCase();
+    const score = keywords.reduce((acc, kw) => {
+      const matches = (text.match(new RegExp(kw, 'g')) || []).length;
+      return acc + matches;
+    }, 0);
+    if (score > bestScore) { bestScore = score; best = { doc, score }; }
+  }
 
-SECTORES QUE ATIENDEN:
-Tecnología y TI, Manufactura y Logística, Finanzas y Banca, Retail y Consumo Masivo, 
-Salud y Farmacéutica, Inmobiliario y Construcción.
+  if (!best || best.score === 0) return null;
 
-DATOS DE CONTACTO:
+  const firstKw = keywords[0];
+  const text = best.doc.textContent;
+  const idx = text.toLowerCase().indexOf(firstKw);
+  const start = Math.max(0, idx - 200);
+  const end = Math.min(text.length, idx + 1300);
+  const chunk = text.substring(start, end);
+
+  return { docName: best.doc.name, chunk, score: best.score };
+}
+
+const SYSTEM_PROMPT = `Eres "Tali", el asistente virtual de "Talento & Estrategia", una firma líder de consultoría de Recursos Humanos en México.
+
+PERSONALIDAD:
+- Eres amigable, profesional y muy útil. Usas un tono cálido pero corporativo.
+- Responde de forma conversacional y natural, como si fueras un asesor experto que quiere genuinamente ayudar.
+- Usa emojis de forma discreta (máx. 1-2 por respuesta) para hacer el chat más agradable.
+- Si el usuario saluda, salúdalo de vuelta con entusiasmo y pregunta en qué puedes ayudarle.
+- Puedes ser algo creativo al dar respuestas, pero siempre basándote en información real de la empresa.
+
+LO QUE PUEDES HACER:
+✅ Responder cualquier pregunta sobre los servicios, la firma, sectores, contacto o cómo navegar el sitio.
+✅ Explicar cómo registrarse o acceder al portal de clientes.
+✅ Dar información sobre políticas, privacidad y uso del sitio.
+✅ Si hay documentos internos de contexto, usarlos para responder con precisión.
+❌ NO responder temas completamente ajenos (política mundial, deportes, recetas, etc.). En ese caso, redirige amablemente.
+
+INFORMACIÓN DE LA EMPRESA:
+
+🏢 SERVICIOS:
+1. Reclutamiento y Selección (Headhunting): búsqueda de talento ejecutivo y especializado para cualquier nivel.
+2. Administración de Nómina (Outsourcing): gestión integral de pagos, prestaciones e IMSS.
+3. Consultoría Organizacional: diagnóstico de clima laboral, reestructuración y cultura corporativa.
+4. Capacitación y Desarrollo: programas de formación en habilidades blandas y técnicas.
+5. Evaluaciones Psicométricas: pruebas de personalidad, inteligencia, integridad y competencias gerenciales.
+6. Asesoría Legal Laboral: cumplimiento normativo, contratos y auditorías de expedientes.
+
+🏭 SECTORES: Tecnología y TI, Manufactura, Finanzas y Banca, Retail, Salud y Farmacéutica, Inmobiliario.
+
+📞 CONTACTO:
 - Email: contacto@talentoestrategia.com
 - Teléfono: +52 (55) 1234-5678
 - Horario: Lunes a Viernes de 9:00 AM a 6:00 PM
-- Dirección: Av. Reforma 222, Piso 14, Cuauhtémoc, CDMX.
+- Dirección: Av. Reforma 222, Piso 14, Cuauhtémoc, CDMX
 
-TRAYECTORIA:
-- Más de 15 años de experiencia
-- Más de 500 empresas atendidas
-- Presencia nacional
+🌐 NAVEGACIÓN DEL SITIO:
+- Página principal: inicio con presentación de la firma
+- /servicios → Catálogo completo de servicios
+- /firma → Misión, Visión y Valores de la empresa
+- /sectores → Industrias que atendemos
+- /contacto → Formulario de contacto directo
+- /register → Registrar tu empresa para el Portal de Clientes
+- /login → Acceso al Portal de Clientes
+- /aviso-legal, /politica-privacidad, /cookies → Información legal y de privacidad
 
-NAVEGACIÓN DEL PORTAL:
-- Registro de empresas: /register (botón "Registro" en el menú)
-- Acceso al portal: /login (botón "Acceso Portal" en el menú)
-- Formulario de contacto: /contacto
-- Catálogo de servicios: /servicios
-- Nuestra firma (misión, visión, valores): /firma
-- Sectores atendidos: /sectores
-- Aviso legal: /aviso-legal
-- Política de privacidad (incluye derechos ARCO): /politica-privacidad
-- Política de cookies: /cookies
+🏆 TRAYECTORIA: +15 años de experiencia | +500 empresas atendidas | Presencia nacional
 
-INSTRUCCIONES DE TONO:
-- Responde SIEMPRE en español
-- Sé profesional, amable y conciso (máximo 3-4 oraciones)
-- Si no sabes algo específico, sugiere contactar por email o teléfono
-- NO respondas preguntas fuera del contexto de Talento & Estrategia`;
+FORMATO DE RESPUESTA:
+- Sé conciso pero completo (2-5 oraciones idealmente).
+- Si listas cosas, usa viñetas cortas con emojis.
+- Termina siempre ofreciendo más ayuda o invitando a actuar (visitar una sección, contactar, registrarse).`;
 
 exports.chat = async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, sessionId = 'anonymous' } = req.body;
+    if (!message) return res.status(400).json({ message: 'El mensaje no puede estar vacío.' });
 
-    if (!message) {
-      return res.status(400).json({ message: 'El mensaje no puede estar vacío.' });
+    console.log(`[Chat] "${message}" | session: ${sessionId}`);
+
+    // Load active documents for RAG
+    const activeDocs = await KnowledgeDocument.findAll({ where: { isActive: true } });
+    const ragResult = searchDocuments(activeDocs, message);
+
+    let systemPrompt = SYSTEM_PROMPT;
+    let sourceDocument = null;
+
+    if (ragResult) {
+      sourceDocument = ragResult.docName;
+      systemPrompt += `\n\n📄 CONTEXTO DEL DOCUMENTO INTERNO "${ragResult.docName}":\n---\n${ragResult.chunk}\n---\nCuando uses este contenido, menciona que la información proviene de "${ragResult.docName}".`;
+      console.log(`[Chat] RAG: "${ragResult.docName}" (score: ${ragResult.score})`);
     }
 
     const apiKey = process.env.GROQ_API_KEY;
-    console.log(`[Chat] Mensaje recibido: "${message}"`);
-    console.log(`[Chat] Groq API Key presente: ${!!apiKey}`);
+    let reply = null;
+    let wasAnswered = true;
 
     if (apiKey) {
       try {
         const Groq = require('groq-sdk');
         const groq = new Groq({ apiKey });
 
-        console.log('[Chat] Llamando a Groq...');
         const completion = await groq.chat.completions.create({
           model: 'llama-3.3-70b-versatile',
           messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user',   content: message },
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message },
           ],
-          max_tokens: 400,
-          temperature: 0.7,
+          max_tokens: 500,
+          temperature: 0.75, // More natural and fluid
         });
 
-        const reply = completion.choices[0].message.content;
-        console.log(`[Chat] Respuesta Groq OK: "${reply.substring(0, 80)}..."`);
-        return res.json({ reply });
-
+        reply = completion.choices[0].message.content;
+        console.log(`[Chat] Groq OK: "${reply.substring(0, 80)}..."`);
       } catch (groqError) {
-        console.error('[Chat] Error de Groq:', groqError.message);
-        if (groqError.status === 401) {
-          return res.json({ reply: 'Error de autenticación con Groq. Verifica que GROQ_API_KEY sea válida en tu .env.' });
-        }
-        if (groqError.status === 429) {
-          return res.json({ reply: 'El servicio de IA está temporalmente ocupado. Por favor intenta en unos segundos.' });
-        }
+        console.error(`[Chat] Groq ERROR (${groqError.status}): ${groqError.message}`);
+        reply = null;
       }
-    } else {
-      console.log('[Chat] Sin GROQ_API_KEY, usando respuestas locales.');
     }
 
-    // Keyword fallback (works without any API key)
-    res.json({ reply: getLocalReply(message) });
+    // Only use fallback if Groq failed
+    if (!reply) {
+      wasAnswered = false;
+      reply = getFallbackReply(message);
+    }
+
+    await ChatHistory.create({ sessionId, userMessage: message, botReply: reply, sourceDocument, wasAnswered });
+    res.json({ reply, source: sourceDocument });
 
   } catch (error) {
-    console.error('[Chat] Error general:', error.message);
+    console.error('[Chat] Fatal error:', error.message);
     res.status(500).json({ message: 'Error en el servidor del chat.' });
   }
 };
 
-function getLocalReply(message) {
+// Minimal fallback only when Groq is completely unavailable
+function getFallbackReply(message) {
   const msg = message.toLowerCase();
   if (msg.includes('hola') || msg.includes('buenas') || msg.includes('buenos'))
-    return '¡Hola! Bienvenido a Talento & Estrategia. ¿En qué te puedo ayudar hoy?';
-  if (msg.includes('servicio') || msg.includes('ofrecen') || msg.includes('hacen'))
-    return 'Ofrecemos: Reclutamiento, Nómina, Consultoría Organizacional, Capacitación, Evaluaciones Psicométricas y Asesoría Legal Laboral. Visita /servicios para más detalles.';
-  if (msg.includes('precio') || msg.includes('costo') || msg.includes('tarifa'))
-    return 'Los precios varían según el servicio. Escríbenos a contacto@talentoestrategia.com para una cotización sin costo.';
-  if (msg.includes('contacto') || msg.includes('teléfono') || msg.includes('correo') || msg.includes('email'))
-    return 'Contáctanos: contacto@talentoestrategia.com | +52 (55) 1234-5678 | Lunes-Viernes 9AM–6PM.';
-  if (msg.includes('dirección') || msg.includes('oficina') || msg.includes('ubicación'))
-    return 'Estamos en Av. Reforma 222, Piso 14, Cuauhtémoc, CDMX.';
-  if (msg.includes('registro') || msg.includes('registrar') || msg.includes('cuenta'))
-    return 'Regístrate en /register haciendo clic en "Registro" en el menú superior.';
-  if (msg.includes('login') || msg.includes('acceso') || msg.includes('portal'))
-    return 'Accede al Portal de Clientes en /login desde el menú superior.';
-  if (msg.includes('sector') || msg.includes('industria'))
-    return 'Atendemos: Tecnología, Manufactura, Finanzas, Retail, Salud e Inmobiliario.';
-  if (msg.includes('experiencia') || msg.includes('años') || msg.includes('trayectoria'))
-    return 'Contamos con más de 15 años de experiencia y más de 500 empresas atendidas a nivel nacional.';
+    return '¡Hola! 👋 Bienvenido a Talento & Estrategia. Soy Tali, tu asistente virtual. ¿En qué puedo ayudarte hoy?';
+  if (msg.includes('servicio'))
+    return 'Ofrecemos Reclutamiento, Administración de Nómina, Consultoría Organizacional, Capacitación, Psicometría y Asesoría Legal. 🎯 Visita /servicios para más detalles.';
+  if (msg.includes('contacto') || msg.includes('teléfono') || msg.includes('correo'))
+    return '📞 Contáctanos: contacto@talentoestrategia.com | +52 (55) 1234-5678 | Lunes-Viernes 9AM–6PM.';
+  if (msg.includes('registro') || msg.includes('registrar'))
+    return '¡Fácil! Ve a /register o haz clic en "Registro" en el menú superior para crear tu cuenta corporativa. 🏢';
   if (msg.includes('gracias'))
-    return '¡Con gusto! Si tienes más preguntas, aquí estaré. 😊';
-  return 'Para más información visita nuestras secciones o contáctanos en contacto@talentoestrategia.com o al +52 (55) 1234-5678.';
+    return '¡Con mucho gusto! 😊 Estoy aquí para lo que necesites.';
+  return '¡Hola! Soy Tali, el asistente de Talento & Estrategia. Puedo ayudarte con información sobre nuestros servicios, cómo registrarte o cómo contactarnos. ¿Qué necesitas saber? 😊';
 }

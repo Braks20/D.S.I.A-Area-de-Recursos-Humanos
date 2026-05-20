@@ -11,6 +11,7 @@ import AvisoLegal from './pages/AvisoLegal';
 import PoliticaPrivacidad from './pages/PoliticaPrivacidad';
 import Cookies from './pages/Cookies';
 import MapaDelSitio from './pages/MapaDelSitio';
+import AdminDocuments from './pages/AdminDocuments';
 import Chatbot from './components/Chatbot';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
         <Route path="/politica-privacidad" element={<PoliticaPrivacidad />} />
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/mapa-sitio" element={<MapaDelSitio />} />
+        <Route path="/admin" element={<AdminDocuments />} />
       </Routes>
       {/* Chatbot floats on all pages */}
       <Chatbot />
