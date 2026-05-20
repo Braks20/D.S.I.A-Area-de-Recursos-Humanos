@@ -16,6 +16,7 @@ app.use(express.json()); // Parses incoming JSON requests
 // Rutas
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/contact', require('./routes/contactRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
 
 // Sincronizar Base de Datos y arrancar servidor
 const PORT = process.env.PORT || 3000;
